@@ -1,42 +1,5 @@
 import { Hotel, RecursiveResult, Result } from "./interface";
 
-export const sum = (a: number, b: number) => {
-  return a + b
-}
-
-export const reserveSimplest = (guestsNumber: number, hotel: Hotel): Result => {
-  let guestsRest = guestsNumber;
-  let rooms = "";
-  let total = 0;
-  const orderedRoomTypes = Object.keys(hotel).sort((a, b) => hotel[b].sleeps - hotel[a].sleeps)
-  orderedRoomTypes.forEach((type: string) => {
-      let numberRest = hotel[type].number;
-      while (guestsRest >= hotel[type].sleeps && numberRest > 0) {
-          rooms += type + " ";
-          guestsRest -= hotel[type].sleeps;
-          total += hotel[type].price;
-          numberRest--;
-      }
-  })
-
-  return { rooms, total, guestsRest };
-}
-
-export const reserveCheapest = (guestsNumber: number, hotel: Hotel): string[] => {
-  let guestsRest = guestsNumber;
-  let rooms: string[] = [];
-  const orderedRoomTypes = Object.keys(hotel).sort((a, b) => hotel[a].price / hotel[a].sleeps - hotel[b].price / hotel[b].sleeps)
-  orderedRoomTypes.forEach((type: string) => {
-      while (guestsRest >= hotel[type].sleeps && hotel[type].number > 0) {
-          rooms.push(type);
-          guestsRest -= hotel[type].sleeps;
-          hotel[type].number--;
-      }
-  })
-
-  return rooms;
-}
-
 const calculateSleeps = (rooms: string[], hotel: Hotel): number => {
   let sleeps = 0
   rooms.forEach(room => {
@@ -44,6 +7,16 @@ const calculateSleeps = (rooms: string[], hotel: Hotel): number => {
   })
 
   return sleeps
+}
+
+const calculateNumber = (rooms: string[], type: string): number => {
+  let number = 0
+  rooms.forEach(room => {
+    if (room === type)
+      number++
+  })
+
+  return number
 }
 
 const calculateTotalPrice = (rooms: string[], hotel: Hotel): number => {
@@ -55,60 +28,75 @@ const calculateTotalPrice = (rooms: string[], hotel: Hotel): number => {
   return total
 }
 
-const calculateTotalSleepsOfHotel = (hotel: Hotel): number => {
-  let sleeps = 0
-  Object.keys(hotel).forEach(room => {
-    sleeps += hotel[room].sleeps * hotel[room].number
+export const findAllPossibleReservation = (totalSleeps: number, hotel: Hotel) => {
+  const newPaths: string[][] = []
+  Object.keys(hotel).sort().forEach(type => {
+    if (hotel[type].number > 0 && hotel[type].sleeps <= totalSleeps) {
+      newPaths.push([type])
+    }
   })
 
-  return sleeps
+  return findAllPossibleReservationRecursive(newPaths, totalSleeps, hotel)
 }
 
-export const reserveCheapestRecursive = (rooms: string[], guestsNumber: number, sortedTypes: string[], hotel: Hotel): string[] => {
-  const guestsRest = guestsNumber - calculateSleeps(rooms, hotel)
-  if (guestsRest === 0) {
-    return rooms
-  }
-  const newRooms = reserveCheapest(guestsRest, hotel)
-  const newGuestsRest = guestsNumber - calculateSleeps(newRooms, hotel)
-  if (newGuestsRest === 0) {
-    return newRooms
+const findAllPossibleReservationRecursive = (paths: string[][], totalSleeps: number, hotel: Hotel) => {
+  const finalPaths: string[][] = []
+  const newPaths: string[][] = []
+  paths.forEach((path) => {
+    const pathSleeps = calculateSleeps(path, hotel)
+    if (totalSleeps - pathSleeps === 0) {
+      finalPaths.push(path)
+      return;
+    }
+    Object.keys(hotel).sort().forEach(type => {
+      const pathNumber = calculateNumber(path, type)
+      if (hotel[type].number > pathNumber && hotel[type].sleeps <= totalSleeps - pathSleeps) {
+        newPaths.push([...path, type])
+      }
+    })
+  })
+
+  if (newPaths.length === 0) {
+    // Remove duplicate paths
+    const result = finalPaths.reduce(function (acc, curr) {
+      if (acc.length === 0) {
+        acc.push(curr);
+      }
+      let found = false;
+      acc.forEach(arr => {
+        if (JSON.stringify(arr.sort()) === JSON.stringify(curr.sort())) {
+          found = true
+        }
+      })
+      if (!found) {
+        acc.push(curr);
+      }
+      
+      return acc;
+    }, [] as string[][]);
+
+    return result
   }
 
-
-  const newRoomsArray = [...rooms, ...newRooms]
-  let lastRoom = newRoomsArray.pop()
-  hotel[lastRoom!].number++
-  let indexOfLastRoom = lastRoom ? sortedTypes.indexOf(lastRoom) : 0
-  while (indexOfLastRoom + 1 >= sortedTypes.length && newRoomsArray.length > 0) {
-    lastRoom = newRoomsArray.pop()
-    hotel[lastRoom!].number++
-    indexOfLastRoom = lastRoom ? sortedTypes.indexOf(lastRoom) : 0
-  }
-
-  if (newRoomsArray.length === 0) {
-    return []
-  }
-  let index = 1
-  let newLastRoom = sortedTypes[indexOfLastRoom + index]
-  while (hotel[sortedTypes[indexOfLastRoom + index]].number === 0) {
-    index++;
-    newLastRoom = sortedTypes[indexOfLastRoom + index]
-  }
-  const someRoomsReplaced = [...newRoomsArray, newLastRoom]
-  hotel[newLastRoom!].number--
-
-
-  return reserveCheapestRecursive(someRoomsReplaced, guestsNumber, sortedTypes, hotel)
+  return findAllPossibleReservationRecursive([...finalPaths, ...newPaths], totalSleeps, hotel)
 }
 
-export const reserve = (guestsNumber: number, hotel: Hotel): string => {
-  const hotelSleeps = calculateTotalSleepsOfHotel(hotel)
-  if (hotelSleeps < guestsNumber) {
+export const reserve = (totalSleeps: number, hotel: Hotel): string => {
+  const allPossibleReservation = findAllPossibleReservation(totalSleeps, hotel)
+  
+  let min = Infinity
+  let rooms: string[] = []
+  allPossibleReservation.forEach(reservation => {
+    const price = calculateTotalPrice(reservation, hotel)
+    if (price < min) {
+      min = price
+      rooms = reservation
+    }
+  })
+  
+  if (rooms.length === 0) {
     return 'No option'
   }
-  const sortedTypes = Object.keys(hotel).sort((a, b) => hotel[a].price / hotel[a].sleeps - hotel[b].price / hotel[b].sleeps)
-  const rooms = reserveCheapestRecursive([], guestsNumber, sortedTypes, JSON.parse(JSON.stringify(hotel)));
 
   const total = calculateTotalPrice(rooms, hotel)
 
