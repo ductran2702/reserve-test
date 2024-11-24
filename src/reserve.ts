@@ -39,9 +39,28 @@ export const findAllPossibleReservation = (totalSleeps: number, hotel: Hotel) =>
   return findAllPossibleReservationRecursive(newPaths, totalSleeps, hotel)
 }
 
+const removeDuplicatedPaths = (paths: string[][]) => {
+  return paths.reduce(function (acc, curr) {
+    if (acc.length === 0) {
+      acc.push(curr);
+    }
+    let found = false;
+    acc.forEach(arr => {
+      if (arr.sort().toString() === curr.sort().toString()) {
+        found = true
+      }
+    })
+    if (!found) {
+      acc.push(curr);
+    }
+    
+    return acc;
+  }, [] as string[][]);
+}
+
 const findAllPossibleReservationRecursive = (paths: string[][], totalSleeps: number, hotel: Hotel) => {
   const finalPaths: string[][] = []
-  const newPaths: string[][] = []
+  let newPaths: string[][] = []
   paths.forEach((path) => {
     const pathSleeps = calculateSleeps(path, hotel)
     if (totalSleeps - pathSleeps === 0) {
@@ -57,26 +76,11 @@ const findAllPossibleReservationRecursive = (paths: string[][], totalSleeps: num
   })
 
   if (newPaths.length === 0) {
-    // Remove duplicate paths
-    const result = finalPaths.reduce(function (acc, curr) {
-      if (acc.length === 0) {
-        acc.push(curr);
-      }
-      let found = false;
-      acc.forEach(arr => {
-        if (JSON.stringify(arr.sort()) === JSON.stringify(curr.sort())) {
-          found = true
-        }
-      })
-      if (!found) {
-        acc.push(curr);
-      }
-      
-      return acc;
-    }, [] as string[][]);
+    const result = removeDuplicatedPaths(finalPaths)
 
     return result
   }
+  newPaths = removeDuplicatedPaths(newPaths)  
 
   return findAllPossibleReservationRecursive([...finalPaths, ...newPaths], totalSleeps, hotel)
 }
