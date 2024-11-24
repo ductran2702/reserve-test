@@ -28,7 +28,7 @@ const calculateTotalPrice = (rooms: string[], hotel: Hotel): number => {
   return total
 }
 
-export const findAllPossibleReservation = (totalSleeps: number, hotel: Hotel) => {
+export const findAllPossibleReservation = (totalSleeps: number, hotel: Hotel): string[][] => {
   const newPaths: string[][] = []
   Object.keys(hotel).sort().forEach(type => {
     if (hotel[type].number > 0 && hotel[type].sleeps <= totalSleeps) {
